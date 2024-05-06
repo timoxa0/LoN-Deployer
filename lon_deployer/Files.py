@@ -26,7 +26,6 @@ class File:
 
     def md5sum(self) -> str | None:
         try:
-            print(urllib.parse.urlparse(self.url).path)
             return json.loads(requests.get(f"https://timoxa0.su/?info={urllib.parse.urlparse(self.url).path}")
                               .content.decode())["hashes"]["md5"]
         except requests.ConnectionError:

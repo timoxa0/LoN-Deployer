@@ -1,0 +1,7 @@
+dist/
+build/
+.idea/
+files/
+
+*.zip
+*.spec
