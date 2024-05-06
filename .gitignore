@@ -2,6 +2,8 @@ dist/
 build/
 .idea/
 files/
+lon_deployer/__pycache__/
+tests/__pycache__/
 
 *.zip
 *.spec
