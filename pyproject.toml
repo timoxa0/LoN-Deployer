@@ -1,0 +1,29 @@
+[tool.poetry]
+name = "lon-deployer"
+version = "0.1.0"
+description = "Linux on Nabu Deployer"
+authors = ["timoxa0 <tima012007@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "3.11.*"
+adbutils = "^2.5.0"
+colorama = "^0.4.6"
+rich = "^13.7.1"
+readchar = "^4.0.6"
+pyinstaller = "^6.6.0"
+libusb = "^1.0.27"
+python-magic = { version = "^0.4.27", platform="linux" }
+python-magic-bin = { version = "0.4.14", platform="win32" }
+
+[tool.poetry.scripts]
+lon-deployer = "lon_deployer.main:run"
+build = "lon_deployer.pyinstaller:install"
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.2.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
