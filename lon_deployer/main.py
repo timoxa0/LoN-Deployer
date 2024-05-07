@@ -73,7 +73,7 @@ def main() -> int:
 
     rootfs = op.abspath(args.RootFS)
     try:
-        if magic.Magic(mime=True).from_file(rootfs) != "application/octet-stream":
+        if magic.Magic(mime=True).from_file(rootfs) not in ["application/octet-stream", "inode/blockdevice"]:
             console.log("Invalid RootFS image")
             return 1
     except FileNotFoundError:
