@@ -152,7 +152,7 @@ def main() -> int:
         console.log("No devices available. Please check your device connection")
         return 1
     else:
-        console.log("More then one device detected. Use -s flag to set device")
+        console.log("More then one device detected. Use -d flag to set device")
         return 1
 
     for msg in [
