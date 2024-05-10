@@ -69,6 +69,9 @@ def fastboot_run(command: [str], serial: str = None) -> str:
     else:
         stdout, stderr = proc.communicate()
         proc.wait()
+        logger.debug(f"fb-cmd: {cmd}")
+        logger.debug(f"fb-out: {stdout}")
+        logger.debug(f"fb-err: {stderr}")
         return (stdout if stdout else stderr).decode()
 
 
