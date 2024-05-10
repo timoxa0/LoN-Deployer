@@ -643,6 +643,20 @@ pygments = ">=2.13.0,<3.0.0"
 jupyter = ["ipywidgets (>=7.5.1,<9)"]
 
 [[package]]
+name = "rich-argparse"
+version = "1.4.0"
+description = "Rich help formatters for argparse and optparse"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "rich_argparse-1.4.0-py3-none-any.whl", hash = "sha256:68b263d3628d07b1d27cfe6ad896da2f5a5583ee2ba226aeeb24459840023b38"},
+    {file = "rich_argparse-1.4.0.tar.gz", hash = "sha256:c275f34ea3afe36aec6342c2a2298893104b5650528941fb53c21067276dba19"},
+]
+
+[package.dependencies]
+rich = ">=11.0.0"
+
+[[package]]
 name = "setuptools"
 version = "69.5.1"
 description = "Easily download, build, install, upgrade, and uninstall Python packages"
@@ -689,4 +703,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "3.11.*"
-content-hash = "e2af14ef9b15c3b3cc9b0716da5276427808f431f8d5603541dfdf390656397b"
+content-hash = "f36325d69c03ac98f4b2bd0aed451b859ef95bc05b3c3a072da079770e683e0a"

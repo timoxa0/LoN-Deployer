@@ -14,6 +14,7 @@ import adbutils
 import adbutils.shell
 from rich.console import Console
 from rich.prompt import Prompt
+from rich_argparse import RichHelpFormatter
 
 from . import Files
 from .utils import check_device, get_port, flash_boot, boot_ofox, clean_device, wait_for_bootloader, check_parts, \
@@ -43,43 +44,47 @@ def main() -> int:
     signal.signal(signal.SIGINT, handle_sigint)
 
     parser = argparse.ArgumentParser(
-        description="Linux on Nabu deployer"
+        description="Linux on Nabu deployer",
+        formatter_class=lambda prog: RichHelpFormatter(
+            prog,
+            max_help_position=37
+        )
+    )
+
+    parser.add_argument(
+        "-v", "--version",
+        help="show version and exit",
+        action="store_true"
     )
 
     parser.add_argument(
         "-d", "--device-serial",
-        help="Device serial"
+        help="device serial"
     )
 
     parser.add_argument(
         "-u", "--username",
-        help="User name"
+        help="linux user name"
     )
 
     parser.add_argument(
         "-p", "--password",
-        help="User password"
+        help="linux user password"
     )
 
     parser.add_argument(
         "RootFS",
-        help="RootFS image"
+        help="root fs image",
+        default=None, nargs="?"
     )
 
     parser.add_argument(
         "-S", "--part-size",
         help="linux partition size in percents"
     )
-
     parser.add_argument(
         "--debug",
         help="enable debug output",
-        action="store_true"
-    )
-
-    parser.add_argument(
-        "--version",
-        help="show version and exit",
         action="store_true"
     )
 
@@ -94,16 +99,19 @@ def main() -> int:
     else:
         logger.setLevel(logging.INFO)
 
-    rootfs = op.abspath(args.RootFS)
-    try:
-        rootfs_magic = magic.Magic(mime=True).from_file(rootfs)
-        logger.debug(f"RootFS magic: {rootfs_magic}")
-        if rootfs_magic not in ["application/octet-stream", "inode/blockdevice"]:
-            console.log("Invalid RootFS image")
+    if args.RootFS:
+        rootfs = op.abspath(args.RootFS)
+        try:
+            rootfs_magic = magic.Magic(mime=True).from_file(rootfs)
+            logger.debug(f"RootFS magic: {rootfs_magic}")
+            if rootfs_magic not in ["application/octet-stream", "inode/blockdevice"]:
+                console.log("Invalid RootFS image")
+                return 1
+        except FileNotFoundError:
+            console.log("RootFS image not found!")
             return 1
-    except FileNotFoundError:
-        console.log("RootFS image not found!")
-        return 1
+    else:
+        console.log(parser.parse_args("-h".split()))
 
     while True:
         try:
