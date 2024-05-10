@@ -23,7 +23,6 @@ def build():
     PyInstaller.__main__.run([
         str(PROJECT_DIR / "run.py"),
         '--onefile',
-        '--collect-submodules',
         '--name',
         'LoN-Deployer',
         "-i",
