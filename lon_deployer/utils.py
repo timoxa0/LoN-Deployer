@@ -86,7 +86,11 @@ def check_device(serial: str) -> bool:
 def check_parts(serial: str) -> bool:
     linux_response = fastboot_run(["getvar", "partition-type:linux"], serial=serial)
     esp_response = fastboot_run(["getvar", "partition-type:esp"], serial=serial)
-    return linux_response != "FAILED" and esp_response != "FAILED"
+    logger.debug({
+        "esp": 'FAILED' not in esp_response,
+        "linux": 'FAILED' not in linux_response
+    })
+    return not ("FAILED" in linux_response or "FAILED" in esp_response)
 
 
 def reboot_fb_device(serial: str) -> None:
