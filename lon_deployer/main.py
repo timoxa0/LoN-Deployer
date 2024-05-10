@@ -1,4 +1,5 @@
 import argparse
+import logging
 import re
 import signal
 import subprocess
@@ -16,7 +17,8 @@ from rich.prompt import Prompt
 
 from . import Files
 from .utils import check_device, get_port, flash_boot, boot_ofox, clean_device, wait_for_bootloader, check_parts, \
-    restore_parts, repartition, get_progress, list_fb_devices, reboot_fb_device
+    restore_parts, repartition, get_progress, list_fb_devices, reboot_fb_device, logger
+from ._version import VERSION
 
 console = Console(log_path=False)
 
@@ -69,11 +71,34 @@ def main() -> int:
         help="linux partition size in percents"
     )
 
+    parser.add_argument(
+        "--debug",
+        help="enable debug output",
+        action="store_true"
+    )
+
+    parser.add_argument(
+        "--version",
+        help="show version and exit",
+        action="store_true"
+    )
+
     args = parser.parse_args()
+
+    if args.version:
+        console.log(f"Version: {VERSION}")
+        return 0
+
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.INFO)
 
     rootfs = op.abspath(args.RootFS)
     try:
-        if magic.Magic(mime=True).from_file(rootfs) not in ["application/octet-stream", "inode/blockdevice"]:
+        rootfs_magic = magic.Magic(mime=True).from_file(rootfs)
+        logger.debug(f"RootFS magic: {rootfs_magic}")
+        if rootfs_magic not in ["application/octet-stream", "inode/blockdevice"]:
             console.log("Invalid RootFS image")
             return 1
     except FileNotFoundError:
@@ -332,9 +357,8 @@ def main() -> int:
 def run() -> None:
     global adb
     status = main()
-    with console.status("[cyan]Stopping adb server", spinner="line", spinner_style="white"):
-        sleep(1)
-        if adb is not None:
+    if adb is not None:
+        with console.status("[cyan]Stopping adb server", spinner="line", spinner_style="white"):
             adb.server_kill()
     exit(status)
 
