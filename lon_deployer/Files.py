@@ -5,7 +5,6 @@ import requests
 import hashlib
 from os import path as op
 from os import getcwd as pwd
-from sys import exit
 from rich.console import Console
 
 from .utils import get_progress
