@@ -146,10 +146,46 @@ def main() -> int:
             break
 
     fb_list = fastboot.list_devices()
+    adb_list = list(map(lambda x: x.serial, adb.list()))
+    if args.device_serial:
+        if args.device_serial in fb_list or args.device_serial in adb_list:
+            serial = args.device_serial
+        else:
+            console.log(f"Device with serial {args.device_serial} not found")
+            return 170
+    elif len(fb_list) == 1 and len(adb_list) == 0:
+        serial = fb_list[0]
+    elif len(adb_list) == 1 and len(fb_list) == 0:
+        serial = adb_list[0]
+    elif len(adb_list + fb_list) == 0:
+        console.log("No devices available. Please check your device connection")
+        return 170
+    else:
+        console.log("More then one device detected. Use -d flag to set device")
+        return 171
+
+    if serial not in fb_list:
+        console.log("ADB Device detected. Rebooting it to bootloader")
+        adb.device(serial).shell("reboot bootloader")
+        with console.status("[cyan]Waiting for fastboot device", spinner="line", spinner_style="white"):
+            try:
                 fastboot.wait_for_bootloader(serial)
+            except exceptions.DeviceNotFound:
+                console.log("Device timed out! Exiting")
+                return 172
+
+        console.log("Device connected")
+    else:
+        console.log("Device connected")
+
+    with console.status("[cyan]Getting info from device", spinner="line", spinner_style="white"):
         if not fastboot.check_device(serial):
+            console.log("Is it nabu?")
             fastboot.reboot(serial)
+            return 254
         parts_status = fastboot.check_parts(serial)
+        console.log("Device verified")
+
     username = args.username
     while username is None:
         username_pattern = r"^[a-z0-9](?!.*[-._?])[a-z0-9]{1,18}[a-z0-9]$"
@@ -167,7 +203,12 @@ def main() -> int:
             password = None
 
     linux_part_size = args.part_size
-    while linux_part_size is None:
+    while linux_part_size is not None or not parts_status:
+        if (linux_part_size is not None and
+                re.match(r"^\d+%$", linux_part_size) and 20 <= int(linux_part_size[:-1]) <= 90):
+            break
+        else:
+            console.log("Incorrect linux partition size. It can be [20; 90]%")
         linux_part_size = Prompt.ask(
             "Size of linux partition (leave empty to skip if possible)",
             default="", show_default=False
