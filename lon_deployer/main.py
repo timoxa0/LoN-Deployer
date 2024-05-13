@@ -17,11 +17,10 @@ from rich.prompt import Prompt
 from rich_argparse import RichHelpFormatter
 
 from . import Files
-from .utils import check_device, get_port, flash_boot, boot_ofox, clean_device, wait_for_bootloader, check_parts, \
+from . import fastboot
     restore_parts, repartition, get_progress, list_fb_devices, reboot_fb_device, logger
 from ._version import VERSION
-
-console = Console(log_path=False)
+from .utils import get_port, repartition, get_progress, logger, console
 
 exit_counter = 0
 
@@ -138,6 +137,11 @@ def main() -> int:
         else:
             break
 
+    fb_list = fastboot.list_devices()
+                fastboot.wait_for_bootloader(serial)
+        if not fastboot.check_device(serial):
+            fastboot.reboot(serial)
+        parts_status = fastboot.check_parts(serial)
     username = args.username
     while username is None:
         username_pattern = r"^[a-z0-9](?!.*[-._?])[a-z0-9]{1,18}[a-z0-9]$"
@@ -219,9 +223,9 @@ def main() -> int:
                 f"Repartition {'requested' if parts_status else 'needed'}. All data will be ERASED",
                 default="n", choices=["y", "n"]) == "y":
             console.log("Restoring stock partition table")
-            restore_parts(serial)
+            fastboot.restore_parts(serial)
             console.log("Booting OrangeFox recovery")
-            boot_ofox(serial)
+            fastboot.boot_ofox(serial)
             with console.status("[cyan]Waiting for device", spinner="line", spinner_style="white"):
                 try:
                     adb.wait_for(serial, state="recovery")
@@ -237,17 +241,7 @@ def main() -> int:
             boot_ofox(serial)
             with console.status("[cyan]Waiting for device", spinner="line", spinner_style="white"):
                 try:
-                    adb.wait_for(serial, state="recovery")
-                except adbutils.errors.AdbTimeout():
-                    console.log("Could not detect recovery device")
-                    return 1
-            with console.status("[cyan]Formating userdata partition", spinner="line", spinner_style="white"):
-                adbutils.device(serial).shell("twrp format data")
-            console.log("Userdata partition formated")
-            adbutils.device(serial).shell("reboot bootloader")
-            console.log("Rebooting into bootloader")
-            with console.status("[cyan]Waiting for device", spinner="line", spinner_style="white"):
-                wait_for_bootloader(serial)
+                    fastboot.wait_for_bootloader(serial)
         else:
             console.log("Repartition canceled. Exiting")
             return 1
@@ -352,11 +346,11 @@ def main() -> int:
 
             console.log("Rebooting to bootloader")
             adbd.shell("reboot bootloader")
-            wait_for_bootloader(serial)
+            fastboot.wait_for_bootloader(serial)
             console.log("Flashing patched boot")
             with open(boot_uefi_path, "rb") as file:
-                flash_boot(serial, file.read())
-            reboot_fb_device(serial)
+                fastboot.flash(serial, "boot", file.read())
+            fastboot.reboot(serial)
 
     console.log("Done!")
     return 0
