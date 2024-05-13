@@ -113,12 +113,13 @@ def main() -> int:
             logger.debug(f"RootFS magic: {rootfs_magic}")
             if rootfs_magic not in ["application/octet-stream", "inode/blockdevice"]:
                 console.log("Invalid RootFS image")
-                return 1
+                return 166
         except FileNotFoundError:
             console.log("RootFS image not found!")
-            return 1
+            return 167
     else:
         console.log(parser.parse_args("-h".split()))
+        return 168
 
     while True:
         try:
@@ -135,13 +136,13 @@ def main() -> int:
                     console.log("Failed to start adb server")
                     console.log("Adb binary not found in path")
                     adb = None
-                    return 1
+                    return 169
                 else:
                     if proc.wait() != 0:
                         console.log("Failed to start adb server")
                         console.log(stdout)
                         adb = None
-                        return 1
+                        return 169
         else:
             break
 
@@ -213,33 +214,6 @@ def main() -> int:
             "Size of linux partition (leave empty to skip if possible)",
             default="", show_default=False
         )
-        if linux_part_size == "":
-            linux_part_size = None
-            break
-        elif re.match(r"^\d+%$", linux_part_size) and 20 <= int(linux_part_size[:-1]) <= 90:
-            break
-        else:
-            console.log("Incorrect linux partition size. It can be [20; 90]%")
-            linux_part_size = None
-
-    fb_list = list_fb_devices()
-    adb_list = list(map(lambda x: x.serial, adb.list()))
-    if args.device_serial:
-        if args.device_serial in fb_list or args.device_serial in adb_list:
-            serial = args.device_serial
-        else:
-            console.log(f"Device with serial {args.device_serial} not found")
-            return 1
-    elif len(fb_list) == 1 and len(adb_list) == 0:
-        serial = fb_list[0]
-    elif len(adb_list) == 1 and len(fb_list) == 0:
-        serial = adb_list[0]
-    elif len(adb_list + fb_list) == 0:
-        console.log("No devices available. Please check your device connection")
-        return 1
-    else:
-        console.log("More then one device detected. Use -d flag to set device")
-        return 1
 
     for msg in [
         f"Username: {username}",
@@ -250,23 +224,8 @@ def main() -> int:
         console.log(msg)
 
     if Prompt.ask("Is it ok?", default="n", choices=["y", "n"]) == "n":
-        return 1
+        return 253
 
-    if serial not in fb_list:
-        console.log("ADB Device detected. Rebooting it to bootloader")
-        adb.device(serial).shell("reboot bootloader")
-        with console.status("[cyan]Waiting for fastboot device", spinner="line", spinner_style="white"):
-            wait_for_bootloader(serial)
-        console.log("Device connected")
-    else:
-        console.log("Device connected")
-
-    if not check_device(serial):
-        console.log("Is it nabu?")
-        reboot_fb_device(serial)
-        return 2
-
-    parts_status = check_parts(serial)
     if linux_part_size:
         if Prompt.ask(
                 f"Repartition {'requested' if parts_status else 'needed'}. All data will be ERASED",
@@ -279,39 +238,41 @@ def main() -> int:
                 try:
                     adb.wait_for(serial, state="recovery")
                 except adbutils.errors.AdbTimeout():
-                    console.log("Could not detect recovery device")
-                    return 1
+                    console.log("Device timed out! Exiting")
+                    return 173
             repartition(serial, int(linux_part_size.replace("%", "")), percents=True)
             console.log("Repartition complete")
+            console.log("To boot android you need to manually format data in your ROM recovery")
+
             adbutils.device(serial).shell("reboot bootloader")
             console.log("Rebooting into bootloader")
-            wait_for_bootloader(serial)
-            console.log("Booting OrangeFox recovery")
-            boot_ofox(serial)
             with console.status("[cyan]Waiting for device", spinner="line", spinner_style="white"):
                 try:
                     fastboot.wait_for_bootloader(serial)
+                except exceptions.DeviceNotFound:
+                    console.log("Device timed out! Exiting")
+                    return 172
         else:
             console.log("Repartition canceled. Exiting")
-            return 1
+            return 253
 
     if not parts_status and not linux_part_size:
         console.log("Incompatible partition table detected. Repartition needed. Exiting")
-        return 1
+        return 174
 
     console.log("Cleaning linux and esp")
-    clean_device(serial)
+    fastboot.clean_device(serial)
 
     console.log("Booting OrangeFox recovery")
 
-    boot_ofox(serial)
+    fastboot.boot_ofox(serial)
 
     with console.status("[cyan]Waiting for device", spinner="line", spinner_style="white"):
         try:
             adb.wait_for(serial, state="recovery")
         except adbutils.errors.AdbTimeout():
-            console.log("Could not detect recovery device")
-            return 1
+            console.log("Device timed out! Exiting")
+            return 173
 
     adbd = adb.device(serial)
 
@@ -326,8 +287,9 @@ def main() -> int:
     )
     nc_thread.start()
     sleep(3)
+
     console.log("Flashing RootFS")
-    with adbd.create_connection("tcp", server_port) as conn:
+    with adbd.create_connection(adbutils.Network.TCP, server_port) as conn:
         with get_progress() as pbar:
             task = pbar.add_task("[cyan]Uploading RootFS", total=op.getsize(rootfs))
             with open(rootfs, "rb") as rootfs:
@@ -348,7 +310,7 @@ def main() -> int:
         else:
             console.log("Postinstall failed. Rebooting to system")
             adbd.reboot()
-            return 4
+            return 174
 
     console.log("Installing UEFI")
     bootshim = files.BootShim.get()
@@ -363,8 +325,9 @@ def main() -> int:
     console.log("Patching boot image")
     match adbd.shell2("uefi-patch").returncode:
         case 1:
-            console.log("Failed to patch boot")
-            return 1
+            console.log("Failed to patch boot. Rebooting")
+            adbd.reboot()
+            return 176
         case 2:
             console.log("Boot image already patched. Skipping")
             adbd.reboot()
@@ -405,14 +368,5 @@ def main() -> int:
     return 0
 
 
-def run() -> None:
-    global adb
-    status = main()
-    if adb is not None:
-        with console.status("[cyan]Stopping adb server", spinner="line", spinner_style="white"):
-            adb.server_kill()
-    exit(status)
-
-
 if "__main__" == __name__:
-    run()
+    exit(main())
