@@ -18,7 +18,7 @@ from rich_argparse import RichHelpFormatter
 
 from . import Files
 from . import fastboot
-    restore_parts, repartition, get_progress, list_fb_devices, reboot_fb_device, logger
+from . import files
 from ._version import VERSION
 from .utils import get_port, repartition, get_progress, logger, console
 
@@ -302,14 +302,14 @@ def main() -> int:
             return 4
 
     console.log("Installing UEFI")
-    bootshim = Files.BootShim.get()
-    payload = Files.UEFI_Payload.get()
+    bootshim = files.BootShim.get()
+    payload = files.UEFI_Payload.get()
     adbd.shell("mkdir /tmp/uefi-install")
     with get_progress() as pbar:
         task = pbar.add_task("[cyan]Pushing uefi files", total=2)
-        adbd.sync.push(bootshim, f"/tmp/uefi-install/{Files.BootShim.name}")
+        adbd.sync.push(bootshim, f"/tmp/uefi-install/{files.BootShim.name}")
         pbar.update(task, advance=1)
-        adbd.sync.push(payload, f"/tmp/uefi-install/{Files.UEFI_Payload.name}")
+        adbd.sync.push(payload, f"/tmp/uefi-install/{files.UEFI_Payload.name}")
         pbar.update(task, advance=1)
     console.log("Patching boot image")
     match adbd.shell2("uefi-patch").returncode:
