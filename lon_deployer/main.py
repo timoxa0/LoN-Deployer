@@ -13,11 +13,10 @@ from time import sleep
 
 import adbutils
 import adbutils.shell
-from rich.console import Console
 from rich.prompt import Prompt
 from rich_argparse import RichHelpFormatter
 
-from . import Files
+from . import exceptions
 from . import fastboot
 from . import files
 from ._version import VERSION
