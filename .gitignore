@@ -8,3 +8,4 @@ tests/__pycache__/
 *.zip
 *.spec
 lon_deployer/_version.py
+poetry.lock
