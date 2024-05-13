@@ -1,4 +1,5 @@
 import argparse
+import atexit
 import logging
 import re
 import signal
@@ -37,10 +38,18 @@ def handle_sigint(*_) -> None:
         exit_counter += 1
 
 
+def exit_handler(*_) -> None:
+    global adb
+    if adb is not None:
+        with console.status("[cyan]Stopping adb server", spinner="line", spinner_style="white"):
+            adb.server_kill()
+
+
 def main() -> int:
     global adb
 
     signal.signal(signal.SIGINT, handle_sigint)
+    atexit.register(exit_handler)
 
     parser = argparse.ArgumentParser(
         description="Linux on Nabu deployer",
