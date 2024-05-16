@@ -1,14 +1,16 @@
 import logging
+import pathlib
+import platform
 import re
 import socket
+import subprocess
 from random import randint
 from time import sleep
 
-from . import exceptions
-
 import adbutils
-from rich.logging import RichHandler
+from magic import Magic
 from rich.console import Console
+from rich.logging import RichHandler
 from rich.progress import (
     BarColumn,
     DownloadColumn,
@@ -17,6 +19,8 @@ from rich.progress import (
     TimeRemainingColumn,
     TransferSpeedColumn,
 )
+
+from . import exceptions
 
 console = Console(log_path=False)
 
@@ -93,3 +97,19 @@ def repartition(serial: str, size: int, percents=False) -> None:
     for cmd in cmds:
         device.shell(cmd)
     sleep(1)
+
+
+def check_rootfs(filepath: pathlib.Path) -> bool:
+    osname = platform.system()
+    if osname == "Linux":
+        magic_file = subprocess.check_output(["file", "--version"]) \
+            .decode().splitlines()[1].split()[-1].split(":")[-1] + ".mgc"
+        logger.debug(f"Magic file: {magic_file}")
+        magic = Magic(mime=True, magic_file=magic_file)
+    elif osname == "Windows":
+        magic = Magic(mime=True)
+    else:
+        raise exceptions.UnsupportedPlatform(osname)
+    filetype = magic.from_file(filepath.absolute())
+    logger.debug(f"RootFS MIME type: {filetype}")
+    return filetype in ["application/octet-stream", "inode/blockdevice"]
