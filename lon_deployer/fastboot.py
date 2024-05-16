@@ -1,8 +1,8 @@
-from . import files, exceptions
-from .utils import logger, console
-
 import os
 import subprocess
+
+from . import files, exceptions
+from .utils import logger, console
 
 
 def _fastboot_run(command: [str], serial: str = None) -> str:
