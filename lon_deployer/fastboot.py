@@ -7,11 +7,14 @@ import subprocess
 
 def _fastboot_run(command: [str], serial: str = None) -> str:
     try:
+        cmd = ["fastboot"]
         if not serial:
-            cmd = f"fastboot {' '.join(command)}"
+            cmd += command
         else:
-            cmd = f"fastboot -s {serial} {' '.join(command)}"
-        fb_out = subprocess.check_output(cmd, stderr=subprocess.STDOUT, shell=True, timeout=60)
+            cmd += ["-s", serial] + command
+        logger.debug(f"fb-cmd: {cmd}")
+        fb_out = subprocess.check_output(cmd, stderr=subprocess.STDOUT, timeout=60)
+        logger.debug(f"fb-out: {fb_out}")
     except FileNotFoundError:
         console.log("Fastboot binary not found")
         console.log("Exiting")
@@ -19,8 +22,6 @@ def _fastboot_run(command: [str], serial: str = None) -> str:
     except subprocess.CalledProcessError:
         raise exceptions.DeviceNotFound("Timed out")
     else:
-        logger.debug(f"fb-cmd: {cmd}")
-        logger.debug(f"fb-out: {fb_out}")
         return fb_out.decode()
 
 
@@ -57,7 +58,7 @@ def boot_ofox(serial: str) -> None:
     with console.status("[cyan]Booting", spinner="line", spinner_style="white"):
         out = _fastboot_run(["boot", ofox], serial)
         if "Failed to load/authenticate boot image: Device Error" in out:
-            raise exceptions.FastbootException("Failed to load/authenticate boot image: Device Error")
+            raise exceptions.UnauthorizedBootImage("Failed to load/authenticate boot image: Device Error", out)
 
 
 def flash(serial: str, part: str, data: bytes) -> None:
