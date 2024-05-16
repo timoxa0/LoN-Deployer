@@ -15,5 +15,7 @@
 | 174  | Incompatible partition table |
 | 175  | Postinstall failed           |
 | 176  | Failed to patch boot image   |
+| 177  | Failed to boot recovery      |
+| 178  | Platform is not supported    |
 | 253  | User cancel                  |
 | 254  | Is it nabu?                  |
