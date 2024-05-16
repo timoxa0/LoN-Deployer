@@ -1,11 +1,12 @@
 import argparse
 import atexit
 import logging
+import pathlib
+import platform
 import re
 import signal
 import subprocess
 import threading
-import magic
 from os import getcwd as pwd, remove
 from os import path as op
 from sys import exit
@@ -20,21 +21,26 @@ from . import exceptions
 from . import fastboot
 from . import files
 from ._version import VERSION
-from .utils import get_port, repartition, get_progress, logger, console
+from .utils import get_port, repartition, get_progress, logger, console, check_rootfs
 
 exit_counter = 0
+exit_counter_needed = False
 
 adb: adbutils.AdbClient | None = None
 
 
 def handle_sigint(*_) -> None:
-    global exit_counter
-    if exit_counter == 2:
-        console.log("CTRL+C pressed 3 times. Exiting")
-        exit(1)
+    global exit_counter, exit_counter_needed
+    if exit_counter_needed:
+        if exit_counter == 2:
+            console.log("CTRL+C pressed 3 times. Exiting")
+            exit(1)
+        else:
+            console.log(f"Press CTRL+C {2 - exit_counter} more {'time' if exit_counter == 1 else 'times'} to exit")
+            exit_counter += 1
     else:
-        console.log(f"Press CTRL+C {2 - exit_counter} more {'time' if exit_counter == 1 else 'times'} to exit")
-        exit_counter += 1
+        console.log("CTRL+C pressed. Exiting")
+        exit(1)
 
 
 def exit_handler(*_) -> None:
@@ -45,10 +51,12 @@ def exit_handler(*_) -> None:
 
 
 def main() -> int:
-    global adb
+    global adb, exit_counter_needed
 
     signal.signal(signal.SIGINT, handle_sigint)
     atexit.register(exit_handler)
+
+    logger.debug(f"Running on {platform.system()}")
 
     parser = argparse.ArgumentParser(
         description="Linux on Nabu deployer",
@@ -107,13 +115,15 @@ def main() -> int:
         logger.setLevel(logging.INFO)
 
     if args.RootFS:
-        rootfs = op.abspath(args.RootFS)
+        rootfs = pathlib.Path(args.RootFS)
         try:
-            rootfs_magic = magic.Magic(mime=True).from_file(rootfs)
-            logger.debug(f"RootFS magic: {rootfs_magic}")
-            if rootfs_magic not in ["application/octet-stream", "inode/blockdevice"]:
+            if not check_rootfs(rootfs):
                 console.log("Invalid RootFS image")
                 return 166
+        except exceptions.UnsupportedPlatform as e:
+            console.log(f"{e.platform} is not supported")
+            return 178
+
         except FileNotFoundError:
             console.log("RootFS image not found!")
             return 167
@@ -180,10 +190,15 @@ def main() -> int:
         console.log("Device connected")
 
     with console.status("[cyan]Getting info from device", spinner="line", spinner_style="white"):
-        if not fastboot.check_device(serial):
-            console.log("Is it nabu?")
-            fastboot.reboot(serial)
-            return 254
+        try:
+            if not fastboot.check_device(serial):
+                console.log("Is it nabu?")
+                fastboot.reboot(serial)
+                return 254
+        except exceptions.DeviceNotFound:
+            console.log("Device timed out! Exiting")
+            return 172
+
         parts_status = fastboot.check_parts(serial)
         console.log("Device verified")
 
@@ -230,10 +245,17 @@ def main() -> int:
         if Prompt.ask(
                 f"Repartition {'requested' if parts_status else 'needed'}. All data will be ERASED",
                 default="n", choices=["y", "n"]) == "y":
+            exit_counter_needed = True
             console.log("Restoring stock partition table")
             fastboot.restore_parts(serial)
             console.log("Booting OrangeFox recovery")
-            fastboot.boot_ofox(serial)
+            try:
+                fastboot.boot_ofox(serial)
+            except exceptions.UnauthorizedBootImage:
+                console.log("Unable to start orangefox recovery")
+                console.log("Reflash your rom and try again")
+                fastboot.reboot(serial)
+                return 177
             with console.status("[cyan]Waiting for device", spinner="line", spinner_style="white"):
                 try:
                     adb.wait_for(serial, state="recovery")
@@ -256,6 +278,8 @@ def main() -> int:
             console.log("Repartition canceled. Exiting")
             return 253
 
+    exit_counter_needed = True
+
     if not parts_status and not linux_part_size:
         console.log("Incompatible partition table detected. Repartition needed. Exiting")
         return 174
@@ -265,7 +289,13 @@ def main() -> int:
 
     console.log("Booting OrangeFox recovery")
 
-    fastboot.boot_ofox(serial)
+    try:
+        fastboot.boot_ofox(serial)
+    except exceptions.UnauthorizedBootImage:
+        console.log("Unable to start orangefox recovery")
+        console.log("Reflash your rom and try again")
+        fastboot.reboot(serial)
+        return 177
 
     with console.status("[cyan]Waiting for device", spinner="line", spinner_style="white"):
         try:
@@ -322,6 +352,7 @@ def main() -> int:
         pbar.update(task, advance=1)
         adbd.sync.push(payload, f"/tmp/uefi-install/{files.UEFI_Payload.name}")
         pbar.update(task, advance=1)
+
     console.log("Patching boot image")
     match adbd.shell2("uefi-patch").returncode:
         case 1:
@@ -342,7 +373,7 @@ def main() -> int:
                     for chunk in adbd.sync.iter_content("/tmp/uefi-install/new-boot.img"):
                         file.write(chunk)
                         pbar.update(task, advance=len(chunk))
-            console.log(f"Pathed boot loaded to {boot_uefi_path}")
+            console.log(f"Pathed boot saved to {boot_uefi_path}")
 
             backup_size = int(adbd.shell("stat -c%s /tmp/uefi-install/boot.img"))
             with get_progress() as pbar:
