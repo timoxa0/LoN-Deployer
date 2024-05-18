@@ -9,7 +9,7 @@ Expand-Archive -Path $platformToolsZip -DestinationPath $env:USERPROFILE -Force
 Remove-Item -Path $platformToolsZip -Force
 $platformToolsDir =  Join-Path $env:USERPROFILE "platform-tools"
 $lonDeployerExe = Join-Path $lonDeployerDir "lon-deployer.exe"
-$latestRelease = Invoke-WebRequest -UseBasicParsing -Uri "https://api.github.com/repos/timoxa0/LoN-Deployer/releases/latest" | ConvertFrom-Json
+$latestRelease = Invoke-WebRequest -UseBasicParsing -Uri "https://git.timoxa0.su/api/v1/repos/timoxa0/LoN-Deployer/releases/latest" | ConvertFrom-Json
 foreach ($asset in $latestRelease.assets) {
     if ($asset.name -eq "LoN-Deployer.exe") {
         Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $lonDeployerExe
