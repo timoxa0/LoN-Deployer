@@ -110,6 +110,6 @@ def check_rootfs(filepath: pathlib.Path) -> bool:
         magic = Magic(mime=True)
     else:
         raise exceptions.UnsupportedPlatform(osname)
-    filetype = magic.from_file(filepath.absolute())
+    filetype = magic.from_file(str(filepath.absolute()))
     logger.debug(f"RootFS MIME type: {filetype}")
     return filetype in ["application/octet-stream", "inode/blockdevice"]
