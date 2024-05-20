@@ -5,7 +5,7 @@ from . import files, exceptions
 from .utils import logger, console
 
 
-def _fastboot_run(command: [str], serial: str = None) -> str:
+def _fastboot_run(command: list[str], serial: str | None = None) -> str:
     try:
         cmd = ["fastboot"]
         if not serial:
@@ -19,13 +19,13 @@ def _fastboot_run(command: [str], serial: str = None) -> str:
         console.log("Fastboot binary not found")
         console.log("Exiting")
         exit(1)
-    except subprocess.CalledProcessError:
+    except subprocess.TimeoutExpired:
         raise exceptions.DeviceNotFound("Timed out")
     else:
         return fb_out.decode()
 
 
-def list_devices() -> [str]:
+def list_devices() -> list[str]:
     return list(
         filter(
             lambda x: x != "",

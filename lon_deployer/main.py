@@ -256,6 +256,10 @@ def main() -> int:
                 console.log("Reflash your rom and try again")
                 fastboot.reboot(serial)
                 return 177
+            except subprocess.CalledProcessError as e:
+                console.log("Fastboot error. Please contact developer")
+                console.log("Executed command", e.cmd)
+                return 179 
             with console.status("[cyan]Waiting for device", spinner="line", spinner_style="white"):
                 try:
                     adb.wait_for(serial, state="recovery")
@@ -296,6 +300,10 @@ def main() -> int:
         console.log("Reflash your rom and try again")
         fastboot.reboot(serial)
         return 177
+    except subprocess.CalledProcessError as e:
+        console.log("Fastboot error. Please contact developer")
+        console.log("Executed command", e.cmd)
+        return 179 
 
     with console.status("[cyan]Waiting for device", spinner="line", spinner_style="white"):
         try:

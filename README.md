@@ -17,5 +17,6 @@
 | 176  | Failed to patch boot image   |
 | 177  | Failed to boot recovery      |
 | 178  | Platform is not supported    |
+| 179  | Unexpected error             |
 | 253  | User cancel                  |
 | 254  | Is it nabu?                  |

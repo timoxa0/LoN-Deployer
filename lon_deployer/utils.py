@@ -91,8 +91,7 @@ def repartition(serial: str, size: int, percents=False) -> None:
         f"parted -s /dev/block/sda rm 31",
         f"parted -s /dev/block/sda mkpart userdata ext4 10.9GB {userdata_end}GB",
         f"parted -s /dev/block/sda mkpart linux ext4 {userdata_end}GB {linux_end}GB",
-        f"parted -s /dev/block/sda mkpart esp fat32 {linux_end}GB {maxsize}GB",
-        f"parted -s /dev/block/sda set 33 esp on"
+        f"parted -s /dev/block/sda mkpart esp fat32 {linux_end}GB {maxsize}GB"
     ]
     for cmd in cmds:
         device.shell(cmd)
